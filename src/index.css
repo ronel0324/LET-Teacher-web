@@ -1,0 +1,9 @@
+@import "tailwindcss";
+
+/* Opsyonal: Para maging smooth ang font sa buong app */
+body {
+  margin: 0;
+  font-family: 'Inter', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
