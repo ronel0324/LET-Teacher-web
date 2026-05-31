@@ -23,7 +23,7 @@ import {
 
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
-// ─── FIREBASE AUTH ────────────────────────────────────────────────────────────
+// FIREBASE AUTH 
 import {
   getAuth,
   signInWithEmailAndPassword,
@@ -36,7 +36,7 @@ import {
 
 const auth = getAuth();
 
-// ─── ROOT APP ─────────────────────────────────────────────────────────────────
+// ROOT APP
 export default function App() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -54,7 +54,7 @@ export default function App() {
   return <AdminApp user={user} />;
 }
 
-// ─── SPLASH SCREEN ────────────────────────────────────────────────────────────
+// SPLASH SCREEN
 function SplashScreen() {
   return (
     <div className="min-h-screen bg-[#73736B] flex items-center justify-center">
@@ -66,7 +66,7 @@ function SplashScreen() {
   );
 }
 
-// ─── AUTH SCREEN ──────────────────────────────────────────────────────────────
+// AUTH SCREEN
 function AuthScreen() {
   const [mode, setMode] = useState<'login' | 'register'>('login');
 
@@ -119,7 +119,6 @@ function AuthScreen() {
     try {
       const cred = await createUserWithEmailAndPassword(auth, regEmail, regPassword);
       await updateProfile(cred.user, { displayName: regName });
-      // Also save to Firestore users collection
       await addDoc(collection(db, 'users'), {
         name: regName,
         email: regEmail,
@@ -367,7 +366,7 @@ function AuthScreen() {
   );
 }
 
-// ─── MAIN ADMIN APP (requires auth) ───────────────────────────────────────────
+// MAIN ADMIN APP (requires auth)
 function AdminApp({ user }: { user: FirebaseUser }) {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [signingOut, setSigningOut] = useState(false);
@@ -446,7 +445,7 @@ function AdminApp({ user }: { user: FirebaseUser }) {
   );
 }
 
-// ─── ALL ORIGINAL VIEWS (unchanged) ───────────────────────────────────────────
+// ALL ORIGINAL VIEWS
 
 function DashboardView({ onNavigate }: { onNavigate: (tab: string) => void }) {
   const [totalQuestions, setTotalQuestions] = useState(0);
@@ -866,7 +865,6 @@ function ModulesView() {
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const pdfInputRef = useRef<HTMLInputElement>(null);
   
-  // PDF Download State
   const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   useEffect(() => { fetchModules(); }, []);
@@ -905,22 +903,18 @@ function ModulesView() {
     finally { setUploadingPdf(false); }
   };
 
-  // ← DAGDAG: Function para makuha ang PDF URL
   const handleDownloadPdf = async (moduleData: any) => {
     if (!moduleData?.pdfUrl) return;
     
     setDownloadingPdf(true);
     try {
-      // Check if directly stored URL
       let pdfUrl = moduleData.pdfUrl;
       
-      // If it's a path_reference (stored as firebase storage ref), get the actual URL
       if (!moduleData.pdfUrl.startsWith('http')) {
         const storageRef = ref(storage, moduleData.pdfUrl);
         pdfUrl = await getDownloadURL(storageRef);
       }
       
-      // Open PDF in new tab
       window.open(pdfUrl, '_blank');
     } catch (err) {
       console.error("Error opening PDF:", err);
@@ -1360,10 +1354,8 @@ function UserManagementView() {
       if (!name || !email || !password) { alert("Name, email, and password are required"); return; }
       if (password.length < 6) { alert("Password must be at least 6 characters"); return; }
 
-      // Create Firebase Auth account
       const cred = await createUserWithEmailAndPassword(auth, email, password);
 
-      // Save user profile to Firestore
       await addDoc(collection(db, "users"), {
         name,
         email,
@@ -1736,7 +1728,7 @@ function SyncView() {
   );
 }
 
-// ─── SUB-COMPONENTS (unchanged) ───────────────────────────────────────────────
+// SUB-COMPONENTS
 function NavItem({ icon, label, active, onClick }: any) {
   return (
     <div onClick={onClick} className={`flex items-center gap-3 p-3 rounded-2xl cursor-pointer transition-all duration-300 ${active ? 'bg-[#EF4444] text-white shadow-[0_10px_20px_rgba(239,68,68,0.3)]' : 'text-white hover:bg-gray-600/50 hover:text-white'}`}>
