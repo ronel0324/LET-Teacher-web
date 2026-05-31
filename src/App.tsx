@@ -1576,6 +1576,13 @@ function SyncView() {
       const newEntry = { time: now, count: freshQuestions.length, version: newVersion };
       const updatedLog = [newEntry, ...syncLog].slice(0, 10);
       await setDoc(doc(db, "settings", "sync"), { lastSync: now, version: newVersion, totalPublished: freshQuestions.length, log: updatedLog, updatedAt: serverTimestamp() });
+      await setDoc(doc(db, "notifications", "latest"), {
+        title: "New Content Available!",
+        message: `${freshQuestions.length} questions have been updated. Please refresh your app.`,
+        version: newVersion,
+        publishedAt: now,
+        updatedAt: serverTimestamp(),
+      });
       setQuestions(freshQuestions); setLastSync(now); setSyncVersion(newVersion); setSyncLog(updatedLog); setSyncResult("success");
     } catch (err) { console.error("Sync error:", err); setSyncResult("error"); }
     finally { setLoading(false); }
