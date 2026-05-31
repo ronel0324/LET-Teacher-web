@@ -862,6 +862,12 @@ function ModulesView() {
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
   const [uploadingCover, setUploadingCover] = useState(false);
   const coverInputRef = useRef<HTMLInputElement>(null);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [uploadingPdf, setUploadingPdf] = useState(false);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
+  
+  // PDF Download State
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   useEffect(() => { fetchModules(); }, []);
 
@@ -888,19 +894,81 @@ function ModulesView() {
     finally { setUploadingCover(false); }
   };
 
-  const openAddModal = () => { setEditingModule(null); setTitle(''); setCategory('General Education'); setContent(''); setCoverFile(null); setCoverPreview(null); setIsModalOpen(true); };
-  const openEditModal = (m: any) => { setEditingModule(m); setTitle(m.title || ''); setCategory(m.category || 'General Education'); setContent(m.content || ''); setCoverFile(null); setCoverPreview(m.coverUrl || null); setIsModalOpen(true); };
-  const closeModal = () => { setIsModalOpen(false); setEditingModule(null); setCoverFile(null); setCoverPreview(null); };
+  const uploadPdf = async (): Promise<string | null> => {
+    if (!pdfFile) return null;
+    setUploadingPdf(true);
+    try {
+      const storageRef = ref(storage, `module-pdfs/${Date.now()}_${pdfFile.name}`);
+      await uploadBytes(storageRef, pdfFile);
+      return await getDownloadURL(storageRef);
+    } catch { return null; }
+    finally { setUploadingPdf(false); }
+  };
+
+  // ← DAGDAG: Function para makuha ang PDF URL
+  const handleDownloadPdf = async (moduleData: any) => {
+    if (!moduleData?.pdfUrl) return;
+    
+    setDownloadingPdf(true);
+    try {
+      // Check if directly stored URL
+      let pdfUrl = moduleData.pdfUrl;
+      
+      // If it's a path_reference (stored as firebase storage ref), get the actual URL
+      if (!moduleData.pdfUrl.startsWith('http')) {
+        const storageRef = ref(storage, moduleData.pdfUrl);
+        pdfUrl = await getDownloadURL(storageRef);
+      }
+      
+      // Open PDF in new tab
+      window.open(pdfUrl, '_blank');
+    } catch (err) {
+      console.error("Error opening PDF:", err);
+      alert("Hindi mabuksan ang PDF. May error.");
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
+
+  const openAddModal = () => {
+    setEditingModule(null); setTitle(''); setCategory('General Education');
+    setContent(''); setCoverFile(null); setCoverPreview(null);
+    setPdfFile(null);
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (m: any) => {
+    setEditingModule(m); setTitle(m.title || ''); setCategory(m.category || 'General Education');
+    setContent(m.content || ''); setCoverFile(null); setCoverPreview(m.coverUrl || null);
+    setPdfFile(null);
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false); setEditingModule(null);
+    setCoverFile(null); setCoverPreview(null);
+    setPdfFile(null);
+  };
 
   const saveModule = async () => {
     if (!title.trim()) { alert('Title is required'); return; }
-    if (!content.trim()) { alert('Content is required'); return; }
     setSaving(true);
     try {
       let coverUrl = editingModule?.coverUrl || null;
       if (coverFile) coverUrl = await uploadCover();
-      const payload: any = { title: title.trim(), category, content: content.trim(), updatedAt: serverTimestamp() };
+
+      let pdfUrl = editingModule?.pdfUrl || null;
+      if (pdfFile) pdfUrl = await uploadPdf();
+
+      const payload: any = {
+        title: title.trim(),
+        category,
+        content: content.trim(),
+        updatedAt: serverTimestamp()
+      };
       if (coverUrl) payload.coverUrl = coverUrl;
+      if (pdfUrl) payload.pdfUrl = pdfUrl;
+
       if (editingModule) { await updateDoc(doc(db, 'modules', editingModule.id), payload); }
       else { payload.createdAt = serverTimestamp(); await addDoc(collection(db, 'modules'), payload); }
       closeModal(); fetchModules();
@@ -958,6 +1026,12 @@ function ModulesView() {
                     <div className="p-5">
                       <p className="font-black text-gray-800 text-sm mb-1 line-clamp-2">{m.title}</p>
                       <p className="text-xs text-gray-400 line-clamp-3 mb-4">{m.content}</p>
+                      {/* PDF Indicator */}
+                      {m.pdfUrl && (
+                        <div className="flex items-center gap-1 text-xs text-red-600 font-bold mb-3">
+                          <FileText size={14} /> PDF Material
+                        </div>
+                      )}
                       <div className="flex gap-2">
                         <button onClick={() => { setViewingModule(m); setIsViewModalOpen(true); }} className="flex-1 text-xs font-bold bg-gray-50 hover:bg-blue-50 hover:text-blue-600 text-gray-600 py-2 rounded-xl transition">View</button>
                         <button onClick={() => openEditModal(m)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition"><Pencil size={14} /></button>
@@ -997,6 +1071,61 @@ function ModulesView() {
                 </div>
                 <input ref={coverInputRef} type="file" accept="image/*" className="hidden" onChange={handleCoverChange} />
               </div>
+              {/* PDF Upload */}
+              <div>
+                <label className="text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
+                  <FileText size={16} /> PDF File
+                  <span className="text-gray-400 font-normal">(optional)</span>
+                </label>
+                <div
+                  onClick={() => pdfInputRef.current?.click()}
+                  className="border-2 border-dashed border-gray-200 rounded-2xl p-4 text-center cursor-pointer hover:border-red-400 hover:bg-red-50/30 transition"
+                >
+                  {pdfFile ? (
+                    <div className="flex items-center justify-between px-2">
+                      <div className="flex items-center gap-2">
+                        <FileText size={20} className="text-red-500" />
+                        <span className="text-sm font-bold text-gray-700 truncate max-w-[200px]">{pdfFile.name}</span>
+                      </div>
+                      <button
+                        onClick={e => {
+                          e.stopPropagation();
+                          setPdfFile(null);
+                          if (pdfInputRef.current) pdfInputRef.current.value = '';
+                        }}
+                        className="text-red-500 hover:text-red-700 p-1"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  ) : editingModule?.pdfUrl ? (
+                    <div className="flex items-center justify-between px-2">
+                      <div className="flex items-center gap-2">
+                        <FileText size={20} className="text-red-500" />
+                        <span className="text-sm font-bold text-gray-600">PDF already uploaded — click to replace</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-gray-400 py-2">
+                      <FileText size={32} className="mx-auto mb-2 opacity-40" />
+                      <p className="text-xs font-bold">Click to upload PDF</p>
+                    </div>
+                  )}
+                </div>
+                <input
+                  ref={pdfInputRef}
+                  type="file"
+                  accept=".pdf"
+                  className="hidden"
+                  onChange={e => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    if (file.type !== 'application/pdf') { alert('Please select a PDF file.'); return; }
+                    setPdfFile(file);
+                  }}
+                />
+             
+              </div>
               <div>
                 <label className="text-sm font-bold text-gray-700 mb-2 block">Study Content</label>
                 <textarea value={content} onChange={e => setContent(e.target.value)} className="w-full bg-gray-50 border rounded-2xl p-4 text-sm leading-relaxed resize-none" rows={10} placeholder="Write the study material here..." />
@@ -1005,8 +1134,8 @@ function ModulesView() {
             </div>
             <div className="flex gap-4 mt-8">
               <button onClick={closeModal} className="flex-1 py-4 font-bold text-gray-400">Cancel</button>
-              <button onClick={saveModule} disabled={saving || uploadingCover} className="flex-1 bg-blue-600 text-white py-4 rounded-2xl font-black disabled:opacity-50">
-                {saving || uploadingCover ? 'Saving...' : editingModule ? 'Save Changes' : 'Publish Module'}
+              <button onClick={saveModule} disabled={saving || uploadingCover || uploadingPdf} className="flex-1 bg-blue-600 text-white py-4 rounded-2xl font-black disabled:opacity-50">
+                {saving || uploadingCover || uploadingPdf ? 'Saving...' : editingModule ? 'Save Changes' : 'Publish Module'}
               </button>
             </div>
           </div>
