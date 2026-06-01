@@ -864,8 +864,6 @@ function ModulesView() {
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const pdfInputRef = useRef<HTMLInputElement>(null);
-  
-  const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   useEffect(() => { fetchModules(); }, []);
 
@@ -901,27 +899,6 @@ function ModulesView() {
       return await getDownloadURL(storageRef);
     } catch { return null; }
     finally { setUploadingPdf(false); }
-  };
-
-  const handleDownloadPdf = async (moduleData: any) => {
-    if (!moduleData?.pdfUrl) return;
-    
-    setDownloadingPdf(true);
-    try {
-      let pdfUrl = moduleData.pdfUrl;
-      
-      if (!moduleData.pdfUrl.startsWith('http')) {
-        const storageRef = ref(storage, moduleData.pdfUrl);
-        pdfUrl = await getDownloadURL(storageRef);
-      }
-      
-      window.open(pdfUrl, '_blank');
-    } catch (err) {
-      console.error("Error opening PDF:", err);
-      alert("Hindi mabuksan ang PDF. May error.");
-    } finally {
-      setDownloadingPdf(false);
-    }
   };
 
   const openAddModal = () => {
